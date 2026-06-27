@@ -1,0 +1,37 @@
+import streamlit as st
+from visualizations import rq4_remote_salary
+from preprocess import render_country_filter
+
+df_full = st.session_state.get("df")
+if df_full is None:
+    st.warning("No data loaded. Return to the Home page first.")
+    st.stop()
+
+st.title("RQ4 – Remote Work Impact on Salary")
+st.markdown(
+    "Investigates whether on-site, hybrid, or remote arrangements are associated with "
+    "salary differences, and whether this effect varies across experience levels."
+)
+
+year_min = int(df_full.work_year.min())
+year_max = int(df_full.work_year.max())
+year_range = st.sidebar.slider("Year range", year_min, year_max, (year_min, year_max))
+
+country_filter = render_country_filter(df_full)
+
+df = df_full[df_full.work_year.between(*year_range)]
+if country_filter is not None:
+    df = df[df["res_iso2"].isin(country_filter)]
+
+if df.empty:
+    st.warning("No data for the selected filters.")
+    st.stop()
+
+valid = df.dropna(subset=["remote_category"])
+col1, col2, col3 = st.columns(3)
+col1.metric("Records", f"{len(valid):,}")
+col2.metric("Remote jobs", f"{(valid.remote_category == 'Remote').sum():,}")
+col3.metric("On-site jobs", f"{(valid.remote_category == 'On-site').sum():,}")
+
+st.plotly_chart(rq4_remote_salary(df), use_container_width=True)
+st.caption("Records without a remote_ratio value are excluded from this chart.")
